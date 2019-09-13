@@ -32,10 +32,10 @@ function instantiateOauth2Client(redirectUrl) {
           oauth2Client._clientSecret,
           oauth2Client.redirectUri
       ].map(async (avar) => await validateRequiredVar(avar)))
-      .then(
+      .then(() => {
         console.debug('instantiateOauth2Client(): oauth2Client is already instantiated.');
         return resolve();
-      )  // End Promise.all.then
+      })  // End Promise.all.then
       .catch(async (err) => {
         // Not really an error, but the oauth2Client doesn't exist yet.
         console.error('instantiateOauth2Client(): Promise.all.catch: ',err);
@@ -146,7 +146,7 @@ module.exports.generateauthurl = async (event, context) => {
   return await getRedirectURL(event.origin)
   .then(async (redirectUrl) => {
     // conjure up an Oauth2Client
-    await instantiateOauth2Client(redirectUrl)
+    await instantiateOauth2Client(redirectUrl);
   })  // End getRedirectURL.then
   .then(async () => {
     let authUrl = oauth2Client.generateAuthUrl({
@@ -157,9 +157,9 @@ module.exports.generateauthurl = async (event, context) => {
     });
     return await createResponseObject('200', authUrl);
   })  // End getRedirectURL.then.then
-  .catch((err) => {
+  .catch(async (err) => {
     console.info('generateauthurl handler:error: ',err);
     return await createResponseObject('400', err.toString());
-  }); // End getRedirectURL.catch 
+  }); // End getRedirectURL.catch
 
-} // End generateauthurl handler
+}; // End generateauthurl handler
