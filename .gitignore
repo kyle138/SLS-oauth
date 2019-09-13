@@ -5,3 +5,6 @@ jspm_packages
 # Serverless directories
 .serverless
 .serverless_plugins
+
+# Config files
+resources/*.yml
