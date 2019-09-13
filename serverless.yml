@@ -3,12 +3,8 @@ service: sls-oauth
 frameworkVersion: ">=1.8.0 <2.0.0"
 
 custom:
-  stage: ${opt:stage, "dev1"}
-  clientId: "blah" # clientId from Google API
-  clientSecret: "blah" # clientSecret from Google API
-  redirectUrl1: "blah"  # http://whatever.user.logs.into.com/gapicb
-  redirectUrl2: "blah"  # https://another.domain.user.logs.into.com/gapicb
-  restrictToDomain: "@blah.com" # (Optional) Domain to restrict logins to
+  stage: ${opt:stage, "dev1"} # dev1, v1, dev2, v2, etc
+  config: ${file(resources/${self:custom.stage}-config.yml)}
 
 provider:
   name: aws
@@ -19,19 +15,53 @@ provider:
   stage: ${self:custom.stage}
   # Environment Variables
   environment:
-    CLIENTID: ${self:custom.clientId}
-    CLIENTSECRET: ${self:custom.clientSecret}
-    REDIRECTURL1: ${self:custom.redirectUrl1}
-    REDIRECTURL2: ${self:custom.redirectUrl2}
+    CLIENTID: ${self:custom.config.clientId}
+    CLIENTSECRET: ${self:custom.config.clientSecret}
+    REDIRECTURL1: ${self:custom.config.redirectUrl1}
+    REDIRECTURL2: ${self:custom.config.redirectUrl2}
+    RESTRICTTODOMAIN: ${self:custom.config.restrictToDomain}
     # IAM policies
-    iamRoleStatements:
+    #iamRoleStatements:
       # none needed yet, may incorporate handle errors later
 
+# layers
+layers:
+  CommonModules:
+    path: layers/CommonModules
+    compatibleRuntimes:
+      - nodejs10.x
+    name: ${self:provider.stage}-oauth-commonModules
+    description: "googleapis"
+  CustomModules:
+    path: layers/CustomModules
+    compatibleRuntimes:
+      - nodejs10.x
+    name: ${self:provider.stage}-oauth-customModules
+    description: "createResponseObject errorLogDDB"
+
 functions:
-  hello:
+  generateauthurl:
     handler: lambdas/handlers.generateauthurl
-    handler: lambdas/handlers.generatetoken
-    handler: lambdas/handlers.refreshtoken
+    description: "APIG/Lambda to generate OAUTH2 Authorization URL"
+    layers:
+      - {Ref: CommonModulesLambdaLayer}
+      - {Ref: CustomModulesLambdaLayer}
+    events:
+      - http:
+          path: /generateauthurl
+          method: get
+          cors: true
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+            template:
+              application/json: '{ "origin" : "$input.params(''Origin'')" }'
+              # Note: Notice when using single-quoted strings, any single quote ' inside its contents must be doubled ('') to escape it.
+              # https://serverless.com/framework/docs/providers/aws/events/apigateway/
+  #generatetoken:
+    #handler: lambdas/handlers.generatetoken
+  #refreshtoken:
+    #handler: lambdas/handlers.refreshtoken
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
