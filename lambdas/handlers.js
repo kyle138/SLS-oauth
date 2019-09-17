@@ -15,7 +15,7 @@ const createResponseObject = require('createResponseObject'); // Used by all
 // oauth2Client is used by all three handlers and is initiated only if it doesn't already exist.
 // This speeds up execution time when the container is still active.
 var oauth2Client = {};
-
+var tokens = {};
 
 // instantiateOauth2Client
 // Checks if the oauth2Client is already instantiated
@@ -131,6 +131,28 @@ function validateRequiredVar(reqvar) {
   }); // End Promise
 } // End validateEnvar
 
+// accountInDomain
+// Check if the account is within the specified domain
+// @params {object}
+// account {string} - an email address
+// domain {string} - an email domain including @ eg: @gmail.com
+function accountInDomain(params) {
+  return new Promise((resolve,reject) => {
+    // check supplied params are valid
+    if( !params.account || params.account.length == 0
+        || !params.domain || params.domain.length == 0) {
+          console.error('accountInDomain(): missing required params:',JSON.stringify(params,null,2));
+          return reject(new Error('accountInDomain() Error: account and domain are required parameters'));
+        }
+    if( params.account.indexOf(params.domain) > -1) {
+      console.debug(`accountInDomain(): ${params.account} is in ${params.domain}`);
+      return resolve();
+    } else {
+      console.debug(`accountInDomain(): ${params.account} is NOT in ${params.domain}`);
+      return reject(new Error('accountInDomain() Error: The provided account is not in the domain.'));
+    }
+  }); // End Promise
+} // End accountInDomain
 
 // **********************************
 // Beware, here there be handlers...
@@ -163,3 +185,66 @@ module.exports.generateauthurl = async (event, context) => {
   }); // End getRedirectURL.catch
 
 }; // End generateauthurl handler
+
+// generatetoken
+// generate Oauth Token
+module.exports.generatetoken = async (event, context) => {
+  console.info('Received event:generateauthurl handler: ', JSON.stringify(event,null,2));
+
+  // Get the redirectUrl that matches this event's origin
+  return await getRedirectURL(event.origin)
+  .then(async (redirectUrl) => {
+    // conjure up an Oauth2Client
+    await instantiateOauth2Client(redirectUrl);
+  })  // End getRedirectURL.then
+  .then(async () => {
+    // Check if 'code' was provided with the event
+    await validateRequiredVar(event.code)
+    .then(() => {
+      console.debug('generatetoken handler: code provided.');
+    });
+  })  // End getRedirectURL.then.then
+  .then(async () => {
+    // Swap google code for google token
+    tokens = await oauth2Client.getToken(event.code)
+    .then(() => {
+      console.debug('generatetoken handler: tokens:'+JSON.stringify(tokens,null,2));
+    })  // End oauth2Client.getToken.then
+    .catch((err) => {
+      console.error(err);
+      throw err;
+    }); // End oauth2Client.getToken.catch
+    // Now tokens contains an access_token and an optional refresh_token. Save them.
+    await oauth2Client.setCredentials(tokens);
+  })  // End getRedirectURL.then.then.then
+  .then(async () => {
+    // Get email addresses of the user attempting to login.
+    return await oauth2.userinfo.get({ auth: oauth2Client });
+  })  // End getRedirectURL.then.then.then.then
+  .then(async (response) => {
+    console.debut('oauth2.userinfo.get response:',JSON.stringify(response,null,2));
+    // Check if the email address returned matches process.env.RESTRICTTODOMAIN
+    await accountInDomain({
+      account: response.data.email,
+      domain: process.env.RESTRICTTODOMAIN
+    })
+    .then(() => {
+      // The account used for login belongs to the specified domain, return the tokens
+      tokens.admitted=1;
+      tokens.email=response.data.email;
+      console.debug(`Login admitted: ${response.data.email}`);
+      return tokens;
+    })  // End accountInDomain.then
+    .catch((err) => {
+      throw err;
+    }); // End accountInDomain.catch
+  })  // End getRedirectURL.then.then.then.then.then
+  .then(async (tokens) => {
+    console.debug('Tokens returns: ',JSON.stringify(tokens,null,2));
+    return await createResponseObject('200', tokens);
+  })  // End getRedirectURL.then.then .then.then.then.then oh man
+  .catch(async (err) => {
+    console.error('generatetoken handler: error: ',err);
+    return await createResponseObject('400', err.toString());
+  }); // End getRedirectURL.catch
+};

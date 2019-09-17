@@ -58,8 +58,25 @@ functions:
               application/json: '{ "origin" : "$input.params(''Origin'')" }'
               # Note: Notice when using single-quoted strings, any single quote ' inside its contents must be doubled ('') to escape it.
               # https://serverless.com/framework/docs/providers/aws/events/apigateway/
-  #generatetoken:
-    #handler: lambdas/handlers.generatetoken
+  generatetoken:
+    handler: lambdas/handlers.generatetoken
+    description: "APIG/Lambda to generate OAUTH2 Authorization URL"
+    layers:
+      - {Ref: CommonModulesLambdaLayer}
+      - {Ref: CustomModulesLambdaLayer}
+    events:
+      - http:
+          path: /generatetoken/{code}
+          method: get
+          cors: true
+          integration: lambda
+          request:
+            parameters:
+              paths:
+                code: true
+            passThrough: NEVER
+            template:
+              application/json: '{ "code" : "$input.params(''code'')" , "origin" : "$input.params(''Origin'')" }'
   #refreshtoken:
     #handler: lambdas/handlers.refreshtoken
 #    The following are a few example events you can configure
