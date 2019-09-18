@@ -161,11 +161,11 @@ function accountInDomain(params) {
 
 // generateauthurl
 // generate Auth Url for oauth login button
-module.exports.generateauthurl = async (event, context) => {
+module.exports.generateauthurl = async (event, context, callback) => {
   console.info('Received event:generateauthurl handler: ', JSON.stringify(event,null,2));
 
   // Get the redirectUrl that matches this event's origin
-  return await getRedirectURL(event.origin)
+  return await getRedirectURL(event.headers.origin)
   .then(async (redirectUrl) => {
     // conjure up an Oauth2Client
     await instantiateOauth2Client(redirectUrl);
@@ -180,8 +180,9 @@ module.exports.generateauthurl = async (event, context) => {
     return await createResponseObject('200', authUrl);
   })  // End getRedirectURL.then.then
   .catch(async (err) => {
-    console.info('generateauthurl handler:error: ',err);
-    return await createResponseObject('400', err.toString());
+    console.error('generateauthurl handler:error: ',err.message);
+    return await createResponseObject('400', err.message);
+//    throw new Error(`[400] Shozbotz`);
   }); // End getRedirectURL.catch
 
 }; // End generateauthurl handler
@@ -196,31 +197,29 @@ module.exports.generatetoken = async (event, context) => {
   .then(async (redirectUrl) => {
     // conjure up an Oauth2Client
     await instantiateOauth2Client(redirectUrl);
-  })  // End getRedirectURL.then
-  .then(async () => {
     // Check if 'code' was provided with the event
     await validateRequiredVar(event.code)
     .then(() => {
       console.debug('generatetoken handler: code provided.');
     });
-  })  // End getRedirectURL.then.then
+  })  // End getRedirectURL.then
   .then(async () => {
     // Swap google code for google token
     tokens = await oauth2Client.getToken(event.code)
-    .then(() => {
+    .then(async () => {
       console.debug('generatetoken handler: tokens:'+JSON.stringify(tokens,null,2));
+      // Now tokens contains an access_token and an optional refresh_token. Save them.
+      await oauth2Client.setCredentials(tokens);
     })  // End oauth2Client.getToken.then
     .catch((err) => {
       console.error(err);
       throw err;
     }); // End oauth2Client.getToken.catch
-    // Now tokens contains an access_token and an optional refresh_token. Save them.
-    await oauth2Client.setCredentials(tokens);
-  })  // End getRedirectURL.then.then.then
+  })  // End getRedirectURL.then.then
   .then(async () => {
     // Get email addresses of the user attempting to login.
     return await oauth2.userinfo.get({ auth: oauth2Client });
-  })  // End getRedirectURL.then.then.then.then
+  })  // End getRedirectURL.then.then.then
   .then(async (response) => {
     console.debut('oauth2.userinfo.get response:',JSON.stringify(response,null,2));
     // Check if the email address returned matches process.env.RESTRICTTODOMAIN
@@ -238,13 +237,14 @@ module.exports.generatetoken = async (event, context) => {
     .catch((err) => {
       throw err;
     }); // End accountInDomain.catch
-  })  // End getRedirectURL.then.then.then.then.then
+  })  // End getRedirectURL.then.then.then.then
   .then(async (tokens) => {
     console.debug('Tokens returns: ',JSON.stringify(tokens,null,2));
     return await createResponseObject('200', tokens);
-  })  // End getRedirectURL.then.then .then.then.then.then oh man
+  })  // End getRedirectURL.then.then .then.then.then oh man
   .catch(async (err) => {
     console.error('generatetoken handler: error: ',err);
     return await createResponseObject('400', err.toString());
+
   }); // End getRedirectURL.catch
 };
