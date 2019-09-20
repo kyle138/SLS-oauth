@@ -15,7 +15,7 @@ const createResponseObject = require('createResponseObject'); // Used by all
 // oauth2Client is used by all three handlers and is initiated only if it doesn't already exist.
 // This speeds up execution time when the container is still active.
 var oauth2Client = {};
-var tokens = {};
+// var tokens = {};
 
 // instantiateOauth2Client
 // Checks if the oauth2Client is already instantiated
@@ -193,46 +193,56 @@ module.exports.generatetoken = async (event, context) => {
   console.info('Received event:generateauthurl handler: ', JSON.stringify(event,null,2));
 
   // Get the redirectUrl that matches this event's origin
-  return await getRedirectURL(event.origin)
+  return await getRedirectURL(event.headers.origin)
   .then(async (redirectUrl) => {
     // conjure up an Oauth2Client
     await instantiateOauth2Client(redirectUrl);
     // Check if 'code' was provided with the event
-    await validateRequiredVar(event.code)
+    await validateRequiredVar(event.queryStringParameters.code)
     .then(() => {
       console.debug('generatetoken handler: code provided.');
     });
   })  // End getRedirectURL.then
   .then(async () => {
     // Swap google code for google token
-    tokens = await oauth2Client.getToken(event.code)
-    .then(async () => {
-      console.debug('generatetoken handler: tokens:'+JSON.stringify(tokens,null,2));
-      // Now tokens contains an access_token and an optional refresh_token. Save them.
-      await oauth2Client.setCredentials(tokens);
-    })  // End oauth2Client.getToken.then
-    .catch((err) => {
-      console.error(err);
-      throw err;
-    }); // End oauth2Client.getToken.catch
+    return await oauth2Client.getToken(event.queryStringParameters.code);
+    // .then(async () => {
+    //   console.debug('generatetoken handler: tokens:'+JSON.stringify(tokens,null,2));
+    //   // Now tokens contains an access_token and an optional refresh_token. Save them.
+    //   await oauth2Client.setCredentials(tokens);
+    // })  // End oauth2Client.getToken.then
+    // .catch((err) => {
+    //   console.error(err);
+    //   throw err;
+    // }); // End oauth2Client.getToken.catch
   })  // End getRedirectURL.then.then
-  .then(async () => {
-    // Get email addresses of the user attempting to login.
-    return await oauth2.userinfo.get({ auth: oauth2Client });
+  .then(async (tokens) => {
+    console.debug('generatetoken handler: tokens:'+JSON.stringify(tokens,null,2));
+
+    // Now tokens contains an access_token and an optional refresh_token. Save them.
+    await oauth2Client.setCredentials(tokens.tokens);
+    return tokens;
   })  // End getRedirectURL.then.then.then
-  .then(async (response) => {
-    console.debut('oauth2.userinfo.get response:',JSON.stringify(response,null,2));
+  .then(async (tokens) => {
+    // Get email addresses of the user attempting to login.
+    return {
+      tokens: tokens,
+      userinfo: await oauth2.userinfo.get({ auth: oauth2Client })
+    };
+  })  // End getRedirectURL.then.then.then.then
+  .then(async (football) => {
+    console.debug('generatetoken handler: football:',JSON.stringify(football,null,2));
     // Check if the email address returned matches process.env.RESTRICTTODOMAIN
-    await accountInDomain({
-      account: response.data.email,
+    return await accountInDomain({
+      account: football.userinfo.data.email,
       domain: process.env.RESTRICTTODOMAIN
     })
     .then(() => {
       // The account used for login belongs to the specified domain, return the tokens
-      tokens.admitted=1;
-      tokens.email=response.data.email;
-      console.debug(`Login admitted: ${response.data.email}`);
-      return tokens;
+      football.tokens.admitted=1;
+      football.tokens.email=football.userinfo.data.email;
+      console.debug(`Login admitted: ${football.userinfo.data.email}`);
+      return football.tokens;
     })  // End accountInDomain.then
     .catch((err) => {
       throw err;
@@ -240,7 +250,7 @@ module.exports.generatetoken = async (event, context) => {
   })  // End getRedirectURL.then.then.then.then
   .then(async (tokens) => {
     console.debug('Tokens returns: ',JSON.stringify(tokens,null,2));
-    return await createResponseObject('200', tokens);
+    return await createResponseObject('200', JSON.stringify(tokens,null,2));
   })  // End getRedirectURL.then.then .then.then.then oh man
   .catch(async (err) => {
     console.error('generatetoken handler: error: ',err);
