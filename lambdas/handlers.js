@@ -206,19 +206,9 @@ module.exports.generatetoken = async (event, context) => {
   .then(async () => {
     // Swap google code for google token
     return await oauth2Client.getToken(event.queryStringParameters.code);
-    // .then(async () => {
-    //   console.debug('generatetoken handler: tokens:'+JSON.stringify(tokens,null,2));
-    //   // Now tokens contains an access_token and an optional refresh_token. Save them.
-    //   await oauth2Client.setCredentials(tokens);
-    // })  // End oauth2Client.getToken.then
-    // .catch((err) => {
-    //   console.error(err);
-    //   throw err;
-    // }); // End oauth2Client.getToken.catch
   })  // End getRedirectURL.then.then
   .then(async (tokens) => {
     console.debug('generatetoken handler: tokens:'+JSON.stringify(tokens,null,2));
-
     // Now tokens contains an access_token and an optional refresh_token. Save them.
     await oauth2Client.setCredentials(tokens.tokens);
     return tokens;
@@ -232,7 +222,7 @@ module.exports.generatetoken = async (event, context) => {
   })  // End getRedirectURL.then.then.then.then
   .then(async (football) => {
     console.debug('generatetoken handler: football:',JSON.stringify(football,null,2));
-    // Check if the email address returned matches process.env.RESTRICTTODOMAIN
+    // Check if the email address returned is a member of process.env.RESTRICTTODOMAIN
     return await accountInDomain({
       account: football.userinfo.data.email,
       domain: process.env.RESTRICTTODOMAIN
@@ -244,17 +234,21 @@ module.exports.generatetoken = async (event, context) => {
       console.debug(`Login admitted: ${football.userinfo.data.email}`);
       return football.tokens;
     })  // End accountInDomain.then
+    // The account used for login is not a member of the specified domain
     .catch((err) => {
-      throw err;
+      console.deb(`Non ${process.env.RESTRICTTODOMAIN} email address, access denied.`);
+      return {
+        "admitted": 0,
+        "errorMessage": "Access denied. Please log out of your Google account in this browser and log back in using your @hartenergy.com account."
+      };
     }); // End accountInDomain.catch
-  })  // End getRedirectURL.then.then.then.then
+  })  // End getRedirectURL.then.then.then.then.then
   .then(async (tokens) => {
     console.debug('Tokens returns: ',JSON.stringify(tokens,null,2));
     return await createResponseObject('200', JSON.stringify(tokens,null,2));
-  })  // End getRedirectURL.then.then .then.then.then oh man
+  })  // End getRedirectURL.then.then.then.then.then.then...oh man
   .catch(async (err) => {
     console.error('generatetoken handler: error: ',err);
     return await createResponseObject('400', err.toString());
-
   }); // End getRedirectURL.catch
 };
