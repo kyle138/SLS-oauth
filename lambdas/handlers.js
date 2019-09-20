@@ -251,4 +251,5 @@ module.exports.generatetoken = async (event, context) => {
     console.error('generatetoken handler: error: ',err);
     return await createResponseObject('400', err.toString());
   }); // End getRedirectURL.catch
-};
+
+};  // End generatetoken handler
