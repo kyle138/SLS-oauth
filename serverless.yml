@@ -62,16 +62,20 @@ functions:
           path: /generatetoken/
           method: get
           cors: true
-          # integration: lambda
-          # request:
-          #   parameters:
-          #     paths:
-          #       code: true
-          #   passThrough: NEVER
-          #   template:
-          #     application/json: '{ "code" : "$input.params(''code'')" , "origin" : "$input.params(''Origin'')" }'
-  #refreshtoken:
-    #handler: lambdas/handlers.refreshtoken
+  refreshtoken:
+    handler: lambdas/handlers.refreshtoken
+    description: "APIG/Lambda to refresh OAuth2 access tokens"
+    layers:
+      - {Ref: CommonModulesLambdaLayer}
+      - {Ref: CustomModulesLambdaLayer}
+    events:
+      - http:
+          path: /refreshtoken
+          method: get
+          cors: true
+          querystrings:
+            accessToken: true
+            refreshToken: true
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details

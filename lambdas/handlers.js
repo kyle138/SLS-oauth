@@ -159,7 +159,7 @@ function accountInDomain(params) {
 //
 // Ye be warned!!!
 
-// generateauthurl
+// generateauthurl handler
 // generate Auth Url for oauth login button
 module.exports.generateauthurl = async (event, context, callback) => {
   console.info('Received event:generateauthurl handler: ', JSON.stringify(event,null,2));
@@ -187,7 +187,7 @@ module.exports.generateauthurl = async (event, context, callback) => {
 
 }; // End generateauthurl handler
 
-// generatetoken
+// generatetoken handler
 // generate Oauth Token
 module.exports.generatetoken = async (event, context) => {
   console.info('Received event:generateauthurl handler: ', JSON.stringify(event,null,2));
@@ -236,7 +236,7 @@ module.exports.generatetoken = async (event, context) => {
     })  // End accountInDomain.then
     // The account used for login is not a member of the specified domain
     .catch((err) => {
-      console.deb(`Non ${process.env.RESTRICTTODOMAIN} email address, access denied.`);
+      console.debug(`Non ${process.env.RESTRICTTODOMAIN} email address, access denied.`,err);
       return {
         "admitted": 0,
         "errorMessage": "Access denied. Please log out of your Google account in this browser and log back in using your @hartenergy.com account."
@@ -253,3 +253,58 @@ module.exports.generatetoken = async (event, context) => {
   }); // End getRedirectURL.catch
 
 };  // End generatetoken handler
+
+// refreshtoken handler
+// oauth2 refreshAccessToken
+module.exports.refreshtoken = async (event, context) => {
+  console.info('Received event:refreshtoken handler: ',JSON.stringify(event,null,2));
+
+  // Get the redirectUrl that matches this event's origin
+  return await getRedirectURL(event.headers.origin)
+  .then(async (redirectUrl) => {
+    // conjure up an Oauth2Client
+    await instantiateOauth2Client(redirectUrl);
+  })  // End getRedirectURL.then
+  .then(async () => {
+    // Check if 'refreshToken' and 'accessToken' was provided with the event
+    await Promise.all([
+      event.queryStringParameters.refreshToken,
+      event.queryStringParameters.accessToken
+    ].map(async (avar) => await validateRequiredVar(avar)))
+    .then(() => {
+      console.debug('refreshtoken handler: refreshToken and accessToken provided.');
+    });
+  })  // End getRedirectURL.then.then
+  .then(async () => {
+    // Set access and refresh tokens in credentials
+    // Optionally, remove access_token to force refresh (undocumented feature)
+    await oauth2Client.setCredentials({
+      // access_token: event.queryStringParameters.accessToken,    // access_token removed to force refresh
+      refresh_token: event.queryStringParameters.refreshToken
+    });
+  }) // End getRedirectURL.then.then.then
+  .then(async () => {
+    // Request refreshed tokens from Google
+    return await oauth2Client.getAccessToken()
+    .then(async (tokens) => {
+      console.debug('refreshtoken: getAccessToken: tokens: ',JSON.stringify(tokens,null,2));
+      if(tokens
+        && tokens.hasOwnProperty('res')
+        && tokens.res.hasOwnProperty('data')
+      ) {
+        // We return all of tokens.res.data, but it's id_token that we're really after
+        return tokens.res.data;
+      } else {
+        throw new Error('The refresh token returned contains no data.');
+      }
+    });
+  })  // End getRedirectURL.then.then.then.then
+  .then(async (results) => {
+    console.debug('refreshtoken handler: returns: ',JSON.stringify(results,null,2));
+    return await createResponseObject('200', JSON.stringify(results,null,2));
+  })  // End getRedirectURL.then.then.then.then.then
+  .catch(async (err) => {
+    console.error('refreshtoken handler: error: ',err);
+    return await createResponseObject('400', err.toString());
+  }); // End getRedirectURL.catch
+};  // End refreshtoken handler
