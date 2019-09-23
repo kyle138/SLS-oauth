@@ -15,7 +15,6 @@ const createResponseObject = require('createResponseObject'); // Used by all
 // oauth2Client is used by all three handlers and is initiated only if it doesn't already exist.
 // This speeds up execution time when the container is still active.
 var oauth2Client = {};
-// var tokens = {};
 
 // instantiateOauth2Client
 // Checks if the oauth2Client is already instantiated
@@ -215,6 +214,7 @@ module.exports.generatetoken = async (event, context) => {
   })  // End getRedirectURL.then.then.then
   .then(async (tokens) => {
     // Get email addresses of the user attempting to login.
+    // Add userinfo to a new object that also contains tokens.
     return {
       tokens: tokens,
       userinfo: await oauth2.userinfo.get({ auth: oauth2Client })
@@ -239,11 +239,12 @@ module.exports.generatetoken = async (event, context) => {
       console.debug(`Non ${process.env.RESTRICTTODOMAIN} email address, access denied.`,err);
       return {
         "admitted": 0,
-        "errorMessage": "Access denied. Please log out of your Google account in this browser and log back in using your @hartenergy.com account."
+        "errorMessage": `Access denied. Please log out of your Google account in this browser and log back in using your ${process.env.RESTRICTTODOMAIN} account.`
       };
     }); // End accountInDomain.catch
   })  // End getRedirectURL.then.then.then.then.then
   .then(async (tokens) => {
+    // Everthing checks out, return the oauth tokens
     console.debug('Tokens returns: ',JSON.stringify(tokens,null,2));
     return await createResponseObject('200', JSON.stringify(tokens,null,2));
   })  // End getRedirectURL.then.then.then.then.then.then...oh man
@@ -266,7 +267,7 @@ module.exports.refreshtoken = async (event, context) => {
     await instantiateOauth2Client(redirectUrl);
   })  // End getRedirectURL.then
   .then(async () => {
-    // Check if 'refreshToken' and 'accessToken' was provided with the event
+    // Check if 'refreshToken' and 'accessToken' were provided with the event
     await Promise.all([
       event.queryStringParameters.refreshToken,
       event.queryStringParameters.accessToken
