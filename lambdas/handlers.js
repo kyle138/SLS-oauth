@@ -190,6 +190,7 @@ module.exports.generateauthurl = async (event, context, callback) => {
 // generate Oauth Token
 module.exports.generatetoken = async (event, context) => {
   console.info('Received event:generateauthurl handler: ', JSON.stringify(event,null,2));
+  const postObj = JSON.parse(event.body);
 
   // Get the redirectUrl that matches this event's origin
   return await getRedirectURL(event.headers.origin)
@@ -197,14 +198,14 @@ module.exports.generatetoken = async (event, context) => {
     // conjure up an Oauth2Client
     await instantiateOauth2Client(redirectUrl);
     // Check if 'code' was provided with the event
-    await validateRequiredVar(event.queryStringParameters.code)
+    await validateRequiredVar(postObj.code)
     .then(() => {
       console.debug('generatetoken handler: code provided.');
     });
   })  // End getRedirectURL.then
   .then(async () => {
     // Swap google code for google token
-    return await oauth2Client.getToken(event.queryStringParameters.code);
+    return await oauth2Client.getToken(postObj.code);
   })  // End getRedirectURL.then.then
   .then(async (tokens) => {
     console.debug('generatetoken handler: tokens:'+JSON.stringify(tokens,null,2));
@@ -259,6 +260,7 @@ module.exports.generatetoken = async (event, context) => {
 // oauth2 refreshAccessToken
 module.exports.refreshtoken = async (event, context) => {
   console.info('Received event:refreshtoken handler: ',JSON.stringify(event,null,2));
+  const postObj = JSON.parse(event.body);
 
   // Get the redirectUrl that matches this event's origin
   return await getRedirectURL(event.headers.origin)
@@ -269,8 +271,8 @@ module.exports.refreshtoken = async (event, context) => {
   .then(async () => {
     // Check if 'refreshToken' and 'accessToken' were provided with the event
     await Promise.all([
-      event.queryStringParameters.refreshToken,
-      event.queryStringParameters.accessToken
+      postObj.refreshToken,
+      postObj.accessToken
     ].map(async (avar) => await validateRequiredVar(avar)))
     .then(() => {
       console.debug('refreshtoken handler: refreshToken and accessToken provided.');
@@ -280,8 +282,8 @@ module.exports.refreshtoken = async (event, context) => {
     // Set access and refresh tokens in credentials
     // Optionally, remove access_token to force refresh (undocumented feature)
     await oauth2Client.setCredentials({
-      // access_token: event.queryStringParameters.accessToken,    // access_token removed to force refresh
-      refresh_token: event.queryStringParameters.refreshToken
+      // access_token: postObj.accessToken,    // access_token removed to force refresh
+      refresh_token: postObj.refreshToken
     });
   }) // End getRedirectURL.then.then.then
   .then(async () => {
