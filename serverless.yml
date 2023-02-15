@@ -1,6 +1,11 @@
 service: sls-oauth
 
-frameworkVersion: ">=1.8.0 <2.0.0"
+frameworkVersion: "3"
+package:
+  patterns:
+    - '!README.md'
+    - '!LICENSE'
+    - '!resources/**'
 
 custom:
   stage: ${opt:stage, "dev1"} # dev1, v1, dev2, v2, etc
@@ -8,11 +13,13 @@ custom:
 
 provider:
   name: aws
-  runtime: nodejs10.x
+  runtime: nodejs18.x
   memorySize: 128
-  timeout: 30
+  timeout: 29
   region: us-east-1
   stage: ${self:custom.stage}
+  httpApi:
+    cors: true
   # Environment Variables
   environment:
     CLIENTID: ${self:custom.config.clientId}
@@ -29,13 +36,13 @@ layers:
   CommonModules:
     path: layers/CommonModules
     compatibleRuntimes:
-      - nodejs10.x
+      - nodejs18.x
     name: ${self:provider.stage}-oauth-commonModules
     description: "googleapis"
   CustomModules:
     path: layers/CustomModules
     compatibleRuntimes:
-      - nodejs10.x
+      - nodejs18.x
     name: ${self:provider.stage}-oauth-customModules
     description: "createResponseObject errorLogDDB"
 
@@ -48,10 +55,7 @@ functions:
       - {Ref: CommonModulesLambdaLayer}
       - {Ref: CustomModulesLambdaLayer}
     events:
-      - http:
-          path: /generateauthurl
-          method: get
-          cors: true
+      - httpApi: 'GET /generateauthurl'
   generatetoken:
     handler: lambdas/handlers.generatetoken
     description: "APIG/Lambda to generate OAUTH2 Authorization URL"
@@ -59,10 +63,7 @@ functions:
       - {Ref: CommonModulesLambdaLayer}
       - {Ref: CustomModulesLambdaLayer}
     events:
-      - http:
-          path: /generatetoken/
-          method: get
-          cors: true
+      - httpApi: 'POST /generatetoken'
   refreshtoken:
     handler: lambdas/handlers.refreshtoken
     description: "APIG/Lambda to refresh OAuth2 access tokens"
@@ -70,18 +71,4 @@ functions:
       - {Ref: CommonModulesLambdaLayer}
       - {Ref: CustomModulesLambdaLayer}
     events:
-      - http:
-          path: /refreshtoken
-          method: get
-          cors: true
-          querystrings:
-            accessToken: true
-            refreshToken: true
-
-# you can add packaging information here
-package:
- exclude:
-   - "*.sample"
- # include:
- #   - include-me.js
- #   - include-me-dir/**
+      - httpApi: 'POST /refreshtoken'
