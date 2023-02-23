@@ -89,8 +89,8 @@ function getRedirectURL(origin) {
       // Because javascript's indexOf() will find an empty string in any string,
       // Test for that first and rpl with null
       origin = (typeof origin === 'string' && origin.length > 0)
-               ? origin
-               : null;
+             ? origin
+             : null;
 
       // Check for redir url
       const redir = process.env.REDIRECTURLS.split(' ').find(elem => elem.indexOf(origin) != -1);
@@ -127,7 +127,46 @@ function validateRequiredVar(reqvar) {
       return reject(new Error('Missing Required Variable'));
     }
   }); // End Promise
-} // End validateEnvar
+} // End validateRequiredvar
+
+// validateIP
+// Checks if the request should be restricted by IP, and if so, is the request coming from an accepted IP
+// @param {string} ip - the IP to check
+// @return {promise} - Error or response object
+function validateIP(ip) {
+  return new Promise(async (resolve,reject) => {
+    // Check if RESTRICTTOIPS is set, otherwise allow all IPs
+    await validateRequiredVar(process.env.RESTRICTTOIPS)
+    .then(() => {
+      // I cannot take credit for the following regex, attribution to:
+      // https://digitalfortress.tech/tricks/top-15-commonly-used-regex/
+      const ipregex = /((^\s*((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))\s*$)|(^\s*((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?\s*$))/;
+      // check if the ip provided is valid
+      if(ipregex.test(ip)) {
+        console.debug(`validateIP:ip:: ${ip} is valid.`); // DEBUG:
+        // Check if the IP is on the guest list
+        if(process.env.RESTRICTTOIPS.split(' ').includes(ip)) {
+          // The IP is on the list
+          console.debug(`valdiateIP:ip:: ${ip} is on the list.`); // DEBUG:
+          return resolve();
+        } else {
+          // The IP is NOT on the list
+          console.error(`validateIP:ip:: ${ip} is NOT on the list.`);
+          return reject(new Error('IP Invalid')); // Not on the list
+        }
+      } else {
+        console.error(`validateIP:ip:: ${ip} is NOT a valid IP`);
+        return reject(new Error('Invalid IP')); // Not a validly formatted IP
+      } // End regex test if/else
+    })  // End valdiate process.env.RESTRICTTOIPS.then
+    .catch((err) => {
+      // Not really an error, RESTRICTTOIPS isn't set so return resolve for everybody.
+      console.error(`validateIP:RESTRICTTOIPS:: Not set. Not really an `,err);
+      return resolve();
+    }); // End validate process.env.RESTRICTTOIPS.catch
+
+  }); // End Promise
+} // End validateIP
 
 // accountInDomain
 // Check if the account is within the specified domain
@@ -163,20 +202,6 @@ function accountInDomain(params) {
       return resolve();
     }); // End validate process.env.RESTRICTTODOMAINS.catch
 
-    // check supplied params are valid
-    // if (params?.account.length == 0) {
-    // // if( !params.account || params.account.length == 0
-    // //     || !params.domain || params.domain.length == 0) {
-    //   console.error('accountInDomain(): missing required params:',JSON.stringify(params,null,2));
-    //   return reject(new Error('accountInDomain() Error: account is a required parameter'));
-    // }
-    // if( params.account.indexOf(params.domain) > -1) {
-    //   console.debug(`accountInDomain(): ${params.account} is in ${params.domain}`);
-    //   return resolve();
-    // } else {
-    //   console.debug(`accountInDomain(): ${params.account} is NOT in ${params.domain}`);
-    //   return reject(new Error('accountInDomain() Error: The provided account is not in the domain.'));
-    // }
   }); // End Promise
 } // End accountInDomain
 
@@ -193,9 +218,13 @@ module.exports.generateauthurl = async (event, context, callback) => {
   // Get the redirectUrl that matches this event's origin
   return await getRedirectURL(event.headers.origin)
   .then(async (redirectUrl) => {
+    await validateIP(event.requestContext.http.sourceIp);
+    return redirectUrl;
+  })
+  .then(async (redirectUrl) => {
     // conjure up an Oauth2Client
     await instantiateOauth2Client(redirectUrl);
-  })  // End getRedirectURL.then
+  })  // End getRedirectURL.then.then
   .then(async () => {
     let authUrl = oauth2Client.generateAuthUrl({
       // 'online' is default, but 'offline' gets a refresh_token
@@ -204,7 +233,7 @@ module.exports.generateauthurl = async (event, context, callback) => {
       scope: 'https://www.googleapis.com/auth/userinfo.email'
     });
     return await createResponseObject('200', authUrl);
-  })  // End getRedirectURL.then.then
+  })  // End getRedirectURL.then.then.then
   .catch(async (err) => {
     console.error('generateauthurl handler:error: ',err.message);
     return await createResponseObject('400', err.message);
