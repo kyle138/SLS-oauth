@@ -9,7 +9,7 @@ package:
 
 custom:
   stage: ${opt:stage, "dev1"} # dev1, v1, dev2, v2, etc
-  config: ${file(resources/${self:custom.stage}-config.yml)}
+  envs: ${file(resources/${self:custom.stage}-envs.yml)}
 
 provider:
   name: aws
@@ -22,11 +22,7 @@ provider:
     cors: true
   # Environment Variables
   environment:
-    CLIENTID: ${self:custom.config.clientId}
-    CLIENTSECRET: ${self:custom.config.clientSecret}
-    REDIRECTURL1: ${self:custom.config.redirectUrl1}
-    REDIRECTURL2: ${self:custom.config.redirectUrl2}
-    RESTRICTTODOMAIN: ${self:custom.config.restrictToDomain}
+    ${self:custom.envs}
     # IAM policies
     #iamRoleStatements:
       # none needed yet, may incorporate handle errors later
