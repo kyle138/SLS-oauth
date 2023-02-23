@@ -81,13 +81,10 @@ function instantiateOauth2Client(redirectUrl) {
 function getRedirectURL(origin) {
   return new Promise(async (resolve, reject) => {
 
-    // Check that REDIRECTURLs are set, otherwise this throws the wrong kind of error.
-    await Promise.all([
-      process.env.REDIRECTURL1,
-      process.env.REDIRECTURL2
-    ].map(async (avar) => validateRequiredVar(avar)))
-    .then(() => {
-      console.debug('getRedirectURL(): all env vars validated.');
+    // Check that REDIRECTURLS are set, otherwise this throws the wrong kind of error.
+    await validateRequiredVar(process.env.REDIRECTURLS)
+    .then(async () => {
+      console.debug('getRedirectURL: env.REDIRECTURLS validated.');
 
       // Because javascript's indexOf() will find an empty string in any string,
       // Test for that first and rpl with null
@@ -95,23 +92,24 @@ function getRedirectURL(origin) {
                ? origin
                : null;
 
-      // If this is wrong, I don't want to be right
-      switch(true) {
-        case process.env.REDIRECTURL1.indexOf(origin) != -1:
-          console.debug(`getRedirectURL(): origin matches redirectUrl1`);
-          return resolve(process.env.REDIRECTURL1);
-        case process.env.REDIRECTURL2.indexOf(origin) != -1:
-          console.debug(`getRedirectURL(): origin matches redirectUrl2`);
-          return resolve(process.env.REDIRECTURL2);
-        default:
-          console.error(`getRedirectURL(): origin: ${origin} does not match either redirectUrl.`);
-          return reject(new Error(`getRedirectURL() error: Origin does not match either redirectUrl.`));
-      } // End switch
-    })  // End Promise.all.then
+      // Check for redir url
+      const redir = process.env.REDIRECTURLS.split(' ').find(elem => elem.indexOf(origin) != -1);
+      console.debug(`getRedirectURL:redir:: ${redir}`); // DEBUG:
+      await validateRequiredVar(redir)
+      .then(() => {
+        console.debug(`getRedirectURL:redir found.`); // DEBUG:
+        return resolve(redir);
+      })
+      .catch((err) => {
+        console.error(`getRedirectURL:origin:: ${origin} does not match any redirectURLs.`,err); // error
+        return reject(new Error('Origin does not match supplied redirect URLs.'));
+      });
+
+    })  // End valdateRequiredVar(process.env.REDIRECTURLS).then
     .catch((err) => {
       console.error(`getRedirectURL():Error: `,err);
       return reject(err);
-    }); // End Promise.all.catch
+    }); // End valdateRequiredVar(process.env.REDIRECTURLS).catch
 
   }); // End Promise
 } // End getRedirectURL
