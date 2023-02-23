@@ -135,20 +135,48 @@ function validateRequiredVar(reqvar) {
 // account {string} - an email address
 // domain {string} - an email domain including @ eg: @gmail.com
 function accountInDomain(params) {
-  return new Promise((resolve,reject) => {
-    // check supplied params are valid
-    if( !params.account || params.account.length == 0
-        || !params.domain || params.domain.length == 0) {
-          console.error('accountInDomain(): missing required params:',JSON.stringify(params,null,2));
-          return reject(new Error('accountInDomain() Error: account and domain are required parameters'));
+  return new Promise(async (resolve,reject) => {
+    // Check if RESTRICTTODOMAINS is set, otherwise allow all domains
+    await validateRequiredVar(process.env.RESTRICTTODOMAINS)
+    .then(async () => {
+      // Login restrictions in effect, check if login domain matches
+      // Check if supplied params are valid
+      await validateRequiredVar(params?.account)
+      .then(async () => {
+        if(process.env.RESTRICTTODOMAINS.split(' ').find(elem => new RegExp(elem+'$').test(params.account))) {
+          console.debug(`accountInDomain: ${params.account} is an accepted domain.`); // DEBUG:
+          return resolve();
+        } else {
+          console.debug(`accountInDomain: ${params.account} is NOT an accepted domain.`); // DEBUG:
+          return reject(new Error('accountInDomain:Error:: The provided account is not in the domain.'));
         }
-    if( params.account.indexOf(params.domain) > -1) {
-      console.debug(`accountInDomain(): ${params.account} is in ${params.domain}`);
+      }) // End validate params.account.then
+      .catch((err) => {
+        // Error
+        console.error('accountInDomain:Missing required params: ',err,JSON.stringify(params,null,2));
+        return reject(new Error('accountInDomain:: account is a required parameter'));
+      }); // End validate params.account.catch
+    }) // End validate process.env.RESTRICTTODOMAINS.then
+    .catch((err) => {
+      // Not really an error, RESTRICTTODOMAINS isn't set so return resolve for everybody
+      console.error(`accountInDomain:RESTRICTTODOMAINS:: Not set. Not really an `,err);  // DEBUG:
       return resolve();
-    } else {
-      console.debug(`accountInDomain(): ${params.account} is NOT in ${params.domain}`);
-      return reject(new Error('accountInDomain() Error: The provided account is not in the domain.'));
-    }
+    }); // End validate process.env.RESTRICTTODOMAINS.catch
+
+    // check supplied params are valid
+    // if (params?.account.length == 0) {
+    // // if( !params.account || params.account.length == 0
+    // //     || !params.domain || params.domain.length == 0) {
+    //   console.error('accountInDomain(): missing required params:',JSON.stringify(params,null,2));
+    //   return reject(new Error('accountInDomain() Error: account is a required parameter'));
+    // }
+    // if( params.account.indexOf(params.domain) > -1) {
+    //   console.debug(`accountInDomain(): ${params.account} is in ${params.domain}`);
+    //   return resolve();
+    // } else {
+    //   console.debug(`accountInDomain(): ${params.account} is NOT in ${params.domain}`);
+    //   return reject(new Error('accountInDomain() Error: The provided account is not in the domain.'));
+    // }
   }); // End Promise
 } // End accountInDomain
 
@@ -222,10 +250,11 @@ module.exports.generatetoken = async (event, context) => {
   })  // End getRedirectURL.then.then.then.then
   .then(async (football) => {
     console.debug('generatetoken handler: football:',JSON.stringify(football,null,2));
-    // Check if the email address returned is a member of process.env.RESTRICTTODOMAIN
+
+    // Check if login is restricted by email address.
     return await accountInDomain({
-      account: football.userinfo.data.email,
-      domain: process.env.RESTRICTTODOMAIN
+      account: football.userinfo.data.email
+      // domain: process.env.RESTRICTTODOMAIN
     })
     .then(() => {
       // The account used for login belongs to the specified domain, return the tokens
