@@ -9,7 +9,7 @@
 //  Load modules
 const {google} = require('googleapis'); // Used by all
 const oauth2 = google.oauth2('v2'); // Used by generatetoken
-const createResponseObject = require('createResponseObject'); // Used by all
+const createResponseObject = require('create-response-object'); // Used by all
 
 // Instantiate
 // oauth2Client is used by all three handlers and is initiated only if it doesn't already exist.
@@ -26,6 +26,7 @@ function instantiateOauth2Client(redirectUrl) {
 
     if(typeof oauth2Client == 'object') {
       console.debug('oauth2Client is an object');
+      console.debug(JSON.stringify(oauth2Client,null,2)); // DEBUG:
       await Promise.all([
           oauth2Client._clientId,
           oauth2Client._clientSecret,

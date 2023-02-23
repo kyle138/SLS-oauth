@@ -38,13 +38,7 @@ layers:
     compatibleRuntimes:
       - nodejs18.x
     name: ${self:provider.stage}-oauth-commonModules
-    description: "googleapis"
-  CustomModules:
-    path: layers/CustomModules
-    compatibleRuntimes:
-      - nodejs18.x
-    name: ${self:provider.stage}-oauth-customModules
-    description: "createResponseObject errorLogDDB"
+    description: "googleapis create-response-object"
 
 # functions: All lambda handlers are in 1 handlers.js file
 functions:
@@ -53,7 +47,6 @@ functions:
     description: "APIG/Lambda to generate OAUTH2 Authorization URL"
     layers:
       - {Ref: CommonModulesLambdaLayer}
-      - {Ref: CustomModulesLambdaLayer}
     events:
       - httpApi: 'GET /generateauthurl'
   generatetoken:
@@ -61,7 +54,6 @@ functions:
     description: "APIG/Lambda to generate OAUTH2 Authorization URL"
     layers:
       - {Ref: CommonModulesLambdaLayer}
-      - {Ref: CustomModulesLambdaLayer}
     events:
       - httpApi: 'POST /generatetoken'
   refreshtoken:
@@ -69,6 +61,5 @@ functions:
     description: "APIG/Lambda to refresh OAuth2 access tokens"
     layers:
       - {Ref: CommonModulesLambdaLayer}
-      - {Ref: CustomModulesLambdaLayer}
     events:
       - httpApi: 'POST /refreshtoken'
