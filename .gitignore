@@ -8,3 +8,4 @@ jspm_packages
 
 # Config files
 resources/*.yml
+resources/*.json

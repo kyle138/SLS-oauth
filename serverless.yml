@@ -1,25 +1,28 @@
 service: sls-oauth
 
-frameworkVersion: ">=1.8.0 <2.0.0"
+frameworkVersion: "3"
+package:
+  patterns:
+    - '!README.md'
+    - '!LICENSE'
+    - '!resources/**'
 
 custom:
   stage: ${opt:stage, "dev1"} # dev1, v1, dev2, v2, etc
-  config: ${file(resources/${self:custom.stage}-config.yml)}
+  envs: ${file(resources/${self:custom.stage}-envs.yml)}
 
 provider:
   name: aws
-  runtime: nodejs10.x
+  runtime: nodejs18.x
   memorySize: 128
-  timeout: 30
+  timeout: 29
   region: us-east-1
   stage: ${self:custom.stage}
+  httpApi:
+    cors: true
   # Environment Variables
   environment:
-    CLIENTID: ${self:custom.config.clientId}
-    CLIENTSECRET: ${self:custom.config.clientSecret}
-    REDIRECTURL1: ${self:custom.config.redirectUrl1}
-    REDIRECTURL2: ${self:custom.config.redirectUrl2}
-    RESTRICTTODOMAIN: ${self:custom.config.restrictToDomain}
+    ${self:custom.envs}
     # IAM policies
     #iamRoleStatements:
       # none needed yet, may incorporate handle errors later
@@ -29,96 +32,30 @@ layers:
   CommonModules:
     path: layers/CommonModules
     compatibleRuntimes:
-      - nodejs10.x
+      - nodejs18.x
     name: ${self:provider.stage}-oauth-commonModules
-    description: "googleapis"
-  CustomModules:
-    path: layers/CustomModules
-    compatibleRuntimes:
-      - nodejs10.x
-    name: ${self:provider.stage}-oauth-customModules
-    description: "createResponseObject errorLogDDB"
+    description: "googleapis create-response-object"
 
+# functions: All lambda handlers are in 1 handlers.js file
 functions:
   generateauthurl:
     handler: lambdas/handlers.generateauthurl
     description: "APIG/Lambda to generate OAUTH2 Authorization URL"
     layers:
       - {Ref: CommonModulesLambdaLayer}
-      - {Ref: CustomModulesLambdaLayer}
     events:
-      - http:
-          path: /generateauthurl
-          method: get
-          cors: true
-          integration: lambda
-          request:
-            passThrough: WHEN_NO_MATCH
-            template:
-              application/json: '{ "origin" : "$input.params(''Origin'')" }'
-              # Note: Notice when using single-quoted strings, any single quote ' inside its contents must be doubled ('') to escape it.
-              # https://serverless.com/framework/docs/providers/aws/events/apigateway/
-  #generatetoken:
-    #handler: lambdas/handlers.generatetoken
-  #refreshtoken:
-    #handler: lambdas/handlers.refreshtoken
-#    The following are a few example events you can configure
-#    NOTE: Please make sure to change your handler code to work with those events
-#    Check the event documentation for details
-#    events:
-#      - http:
-#          path: users/create
-#          method: get
-#      - websocket: $connect
-#      - s3: ${env:BUCKET}
-#      - schedule: rate(10 minutes)
-#      - sns: greeter-topic
-#      - stream: arn:aws:dynamodb:region:XXXXXX:table/foo/stream/1970-01-01T00:00:00.000
-#      - alexaSkill: amzn1.ask.skill.xx-xx-xx-xx
-#      - alexaSmartHome: amzn1.ask.skill.xx-xx-xx-xx
-#      - iot:
-#          sql: "SELECT * FROM 'some_topic'"
-#      - cloudwatchEvent:
-#          event:
-#            source:
-#              - "aws.ec2"
-#            detail-type:
-#              - "EC2 Instance State-change Notification"
-#            detail:
-#              state:
-#                - pending
-#      - cloudwatchLog: '/aws/lambda/hello'
-#      - cognitoUserPool:
-#          pool: MyUserPool
-#          trigger: PreSignUp
-#      - alb:
-#          listenerArn: arn:aws:elasticloadbalancing:us-east-1:XXXXXX:listener/app/my-load-balancer/50dc6c495c0c9188/
-#          priority: 1
-#          conditions:
-#            host: example.com
-#            path: /hello
-
-#    Define function environment variables here
-#    environment:
-#      variable2: value2
-
-# you can add CloudFormation resource templates here
-#resources:
-#  Resources:
-#    NewResource:
-#      Type: AWS::S3::Bucket
-#      Properties:
-#        BucketName: my-new-bucket
-#  Outputs:
-#     NewOutput:
-#       Description: "Description for the output"
-#       Value: "Some output value"
-
-# you can add packaging information here
-#package:
-#  include:
-#    - include-me.js
-#    - include-me-dir/**
-#  exclude:
-#    - exclude-me.js
-#    - exclude-me-dir/**
+      - httpApi: 'GET /generateauthurl'
+  generatetoken:
+    handler: lambdas/handlers.generatetoken
+    description: "APIG/Lambda to generate OAUTH2 Authorization URL"
+    layers:
+      - {Ref: CommonModulesLambdaLayer}
+    events:
+      - httpApi: 'POST /generatetoken'
+  refreshtoken:
+    handler: lambdas/handlers.refreshtoken
+    description: "APIG/Lambda to refresh OAuth2 access tokens"
+    layers:
+      - {Ref: CommonModulesLambdaLayer}
+    events:
+      - httpApi: 'POST /refreshtoken'
