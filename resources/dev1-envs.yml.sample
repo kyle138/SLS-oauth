@@ -1,0 +1,5 @@
+CLIENTID: "blah" # clientId from Google API
+CLIENTSECRET: "blah" # clientSecret from Google API
+REDIRECTURLS: "blah blah2"  # (Required, space separated) http://whatever.user.logs.into.com/gapicb https://another.domain.user.logs.into.com/gapicb
+RESTRICTTODOMAINS: "@blah.com @blah2.com" # (Optional, space separated) Domain(s) to restrict logins to
+RESTRICTTOIPS: "123.123.123.123 2001:db8:0:1" # (Optional, space separated) IP(s) to restrict logins to
