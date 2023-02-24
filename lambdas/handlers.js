@@ -283,7 +283,6 @@ module.exports.generatetoken = async (event, context) => {
     // Check if login is restricted by email address.
     return await accountInDomain({
       account: football.userinfo.data.email
-      // domain: process.env.RESTRICTTODOMAIN
     })
     .then(() => {
       // The account used for login belongs to the specified domain, return the tokens
@@ -348,10 +347,7 @@ module.exports.refreshtoken = async (event, context) => {
     return await oauth2Client.getAccessToken()
     .then(async (tokens) => {
       console.debug('refreshtoken: getAccessToken: tokens: ',JSON.stringify(tokens,null,2));
-      if(tokens
-        && tokens.hasOwnProperty('res')
-        && tokens.res.hasOwnProperty('data')
-      ) {
+      if(tokens?.res?.data) {
         // We return all of tokens.res.data, but it's id_token that we're really after
         return tokens.res.data;
       } else {
