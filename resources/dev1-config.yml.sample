@@ -1,5 +1,0 @@
-clientId: "blah" # clientId from Google API
-clientSecret: "blah" # clientSecret from Google API
-redirectUrl1: "blah"  # http://whatever.user.logs.into.com/gapicb
-redirectUrl2: "blah"  # https://another.domain.user.logs.into.com/gapicb
-restrictToDomain: "@blah.com" # (Optional) Domain to restrict logins to
