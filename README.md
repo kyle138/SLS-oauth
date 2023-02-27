@@ -1,7 +1,7 @@
 # SLS-oauth
 Serverless backend for googleapi's oauth2 generateAuthUrl, generateToken, and refreshToken.  
 This can be used in combination with AWS Cognito to secure API Gateway endpoints for a single page app.
-For more detail visit [here](https://kyle138.github.io/oauthlambdacognito/)
+For more detail visit [here](https://kyle138.github.io/oauthlambdacognito/)  
 v2.0.1  
 
 ## Note:
